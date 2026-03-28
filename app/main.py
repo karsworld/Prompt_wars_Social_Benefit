@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.routes import capture, confirm, config, health
+from app.routes import capture, confirm, config, health, incidents
 
 load_dotenv()  # Load .env for local development (no-op on Cloud Run)
 
@@ -35,6 +35,7 @@ app.include_router(health.router)
 app.include_router(capture.router, prefix="/api")
 app.include_router(confirm.router, prefix="/api")
 app.include_router(config.router, prefix="/api")
+app.include_router(incidents.router, prefix="/api")
 
 # Serve the SPA static files
 _STATIC_DIR = Path(__file__).parent / "static"

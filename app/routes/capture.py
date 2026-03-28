@@ -12,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.models.schemas import VerificationCard
-from app.services import gemini, sanitizer, storage
+from app.services import gemini, sanitizer, firestore, storage
 
 router = APIRouter()
 
@@ -66,5 +66,13 @@ async def capture(
     if geo_hint and card.location.lat is None:
         card.location.lat = lat
         card.location.lng = lng
+
+    # Persistence: Save to Firestore for Recent Activity History
+    # We do this asynchronously to keep the response fast
+    try:
+        await firestore.save_incident(card)
+    except Exception as e:
+        # Don't fail the request if Firestore fails
+        print(f"WARNING: Firestore archival failed: {e}")
 
     return card

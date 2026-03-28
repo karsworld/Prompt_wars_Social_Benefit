@@ -497,3 +497,60 @@ body {
   .capture-panel, .card { padding: 18px; }
   .payload-grid { grid-template-columns: 1fr 1fr; }
 }
+/* ── History Section ── */
+.history-section {
+  display: flex; flex-direction: column; gap: 14px;
+  margin-top: 10px;
+}
+.history-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.live-indicator {
+  font-size: 0.65rem; font-weight: 800; color: #10b981;
+  letter-spacing: 0.1em; display: flex; align-items: center; gap: 6px;
+  background: rgba(16,185,129,0.1); padding: 4px 10px; border-radius: 100px;
+}
+.pulse {
+  width: 6px; height: 6px; background: #10b981; border-radius: 50%;
+  box-shadow: 0 0 0 #10b981; animation: pulse-green 2s infinite;
+}
+@keyframes pulse-green {
+  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); }
+  70%  { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+
+.history-list { display: flex; flex-direction: column; gap: 12px; }
+.history-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: transform 0.2s;
+  cursor: pointer;
+}
+.history-card:hover { transform: scale(1.01); border-color: var(--text-muted); }
+
+.hc-header { display: flex; align-items: center; gap: 8px; }
+.hc-priority {
+  font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 4px;
+}
+.history-card[data-priority="P1"] .hc-priority { background: var(--p1-bg); color: var(--p1); }
+.history-card[data-priority="P2"] .hc-priority { background: var(--p2-bg); color: var(--p2); }
+.history-card[data-priority="P3"] .hc-priority { background: var(--p3-bg); color: var(--p3); }
+.history-card[data-priority="P4"] .hc-priority { background: var(--p4-bg); color: var(--p4); }
+
+.hc-category { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); }
+.hc-time { margin-left: auto; font-size: 0.72rem; color: var(--text-muted); }
+
+.hc-summary { font-size: 0.9rem; line-height: 1.5; color: var(--text-primary); }
+.hc-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.75rem; color: var(--text-muted);
+}
+
+.loading-history, .empty-history {
+  padding: 40px; text-align: center; font-size: 0.85rem; color: var(--text-muted);
+  border: 1px dashed var(--border); border-radius: var(--radius);
+}

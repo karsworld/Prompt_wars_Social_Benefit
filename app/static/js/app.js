@@ -71,6 +71,7 @@ const ackSection    = $("ack-section");
 const ackMessage    = $("ack-message");
 const ackId         = $("ack-id");
 const btnReset      = $("btn-reset");
+const historyList   = $("history-list");
 
 // ─── Geo Module ──────────────────────────────────────────────────────────────
 function detectLocation() {
@@ -282,6 +283,7 @@ btnAnalyze.addEventListener("click", async () => {
     }
     state.card = await res.json();
     renderCard(state.card);
+    await fetchHistory(); // Update history immediately
   } catch (err) {
     showError(`Analysis failed: ${err.message}`);
   } finally {
@@ -477,6 +479,40 @@ btnReset.addEventListener("click", () => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
+// ─── History Module ──────────────────────────────────────────────────────────
+async function fetchHistory() {
+  try {
+    const res = await fetch("/api/incidents");
+    if (!res.ok) return;
+    const items = await res.json();
+    renderHistory(items);
+  } catch (err) {
+    console.error("Failed to fetch history:", err);
+  }
+}
+
+function renderHistory(items) {
+  if (!items || items.length === 0) {
+    historyList.innerHTML = '<div class="empty-history">No activity yet. Reports will appear here once analyzed.</div>';
+    return;
+  }
+
+  historyList.innerHTML = items.map(item => `
+    <div class="history-card" data-priority="${item.priority}">
+      <div class="hc-header">
+        <span class="hc-priority">${item.priority}</span>
+        <span class="hc-category">${item.category}</span>
+        <span class="hc-time">${new Date(item.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+      </div>
+      <p class="hc-summary">${item.summary}</p>
+      <div class="hc-footer">
+        <span>📍 ${item.location?.description || "Unknown"}</span>
+        <span>${Math.round(item.confidence * 100)}%</span>
+      </div>
+    </div>
+  `).join('');
+}
+
 // ─── Boot: inject Maps key from server config endpoint ───────────────────────
 (async () => {
   try {
@@ -488,5 +524,6 @@ btnReset.addEventListener("click", () => {
   } catch (_) {
     // Maps key unavailable — map will show placeholder text
   }
+  await fetchHistory();
   detectLocation();
 })();

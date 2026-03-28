@@ -88,6 +88,14 @@ for SECRET in GEMINI_API_KEY GOOGLE_MAPS_API_KEY; do
     --quiet 2>/dev/null || true
 done
 
+# Grant Cloud Run SA access to Datastore and Storage
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${CR_SA}" \
+  --role="roles/datastore.user" --quiet
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${CR_SA}" \
+  --role="roles/storage.admin" --quiet
+
 # Also grant Cloud Build SA access
 CB_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" \

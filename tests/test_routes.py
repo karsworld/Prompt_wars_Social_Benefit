@@ -32,9 +32,10 @@ def test_health_check():
 
 # --- CAPTURE TESTS ---
 
+@patch("app.services.firestore.save_incident")
 @patch("app.services.gemini.analyze_text")
-def test_capture_text_success(mock_analyze):
-    """Verify /api/capture correctly calls Gemini and returns a card."""
+def test_capture_text_success(mock_analyze, mock_save):
+    """Verify /api/capture correctly calls Gemini and persists to Firestore."""
     # Setup mock return
     mock_analyze.return_value = VerificationCard(
         priority="P1",
@@ -49,6 +50,7 @@ def test_capture_text_success(mock_analyze):
             notes="Mocked results"
         )
     )
+    mock_save.return_value = "mock_firestore_id"
 
     # Note: /api/capture uses Form data
     payload = {
@@ -66,6 +68,25 @@ def test_capture_text_success(mock_analyze):
     assert data["category"] == "Medical"
     assert data["location"]["lat"] == 10.0
     assert mock_analyze.called
+    assert mock_save.called
+
+
+# --- HISTORY TESTS ---
+
+@patch("app.services.firestore.get_recent_incidents")
+def test_get_history_success(mock_get):
+    """Verify history endpoint retrieves items from Firestore."""
+    mock_get.return_value = [
+        {"priority": "P1", "category": "Medical", "summary": "Incident 1", "confidence": 0.9, "id": "1"},
+        {"priority": "P2", "category": "Safety", "summary": "Incident 2", "confidence": 0.8, "id": "2"},
+    ]
+    
+    response = client.get("/api/incidents")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["priority"] == "P1"
+    assert mock_get.called
 
 
 # --- CONFIRM TESTS ---
