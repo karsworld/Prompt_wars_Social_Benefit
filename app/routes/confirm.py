@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter
 
 from app.models.schemas import ConfirmRequest, DispatchAck
+from app.services import storage
 
 router = APIRouter()
 
@@ -36,6 +37,18 @@ async def confirm(body: ConfirmRequest) -> DispatchAck:
     )
 
     message = _DISPATCH_MESSAGES.get(body.card.priority, "Report received.")
+
+    # --- GOOGLE CLOUD STORAGE INTEGRATION ---
+    # Archive confirmed incident with Dispatch ID to JSON
+    incident_to_save = body.card.model_dump()
+    incident_to_save["dispatch_id"] = dispatch_id
+    incident_to_save["confirmed_at"] = timestamp
+    
+    storage.archive_incident_json(
+        incident_data=incident_to_save, 
+        filename_prefix=dispatch_id.lower()
+    )
+
     return DispatchAck(
         dispatch_id=dispatch_id,
         status="dispatched",

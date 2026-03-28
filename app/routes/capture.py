@@ -12,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.models.schemas import VerificationCard
-from app.services import gemini, sanitizer
+from app.services import gemini, sanitizer, storage
 
 router = APIRouter()
 

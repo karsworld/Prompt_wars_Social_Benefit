@@ -1,18 +1,24 @@
-"""Gemini 1.5 Flash integration — multimodal incident analysis."""
+"""Gemini SDK Migration — stable JSON parsing with compatibility fallback."""
 from __future__ import annotations
 
 import json
 import os
 import re
-from typing import Optional
+import sys
+from typing import Any, Optional
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from app.models.schemas import ActionPayload, LocationModel, VerificationCard
 
 # ---------------------------------------------------------------------------
-# System prompt: instructs Gemini to return ONLY structured JSON
-# Low temperature (0.2) keeps output deterministic and token-efficient
+# Config: Target model for current environment
+# ---------------------------------------------------------------------------
+MODEL_NAME = "models/gemini-2.5-flash"
+
+# ---------------------------------------------------------------------------
+# System Instructions: Moved to a preamble in 'contents'.
 # ---------------------------------------------------------------------------
 _SYSTEM_PROMPT = """
 You are an emergency triage AI for the BridgeLink crisis response system.
@@ -38,45 +44,76 @@ JSON schema:
     "notes": "<brief notes for first responders>"
   }
 }
-
-Priority definitions:
-  P1 — Life-threatening (act within minutes)
-  P2 — Serious (act within 1 hour)
-  P3 — Non-urgent (act within 24 hours)
-  P4 — Informational / low priority
 """.strip()
 
 
-def _build_model() -> genai.GenerativeModel:
+def _get_client() -> genai.Client:
+    """Initialize the new google-genai Client targeting v1."""
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY environment variable is not set.")
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        generation_config=genai.types.GenerationConfig(
-            temperature=0.2,
-            max_output_tokens=512,
-        ),
-        system_instruction=_SYSTEM_PROMPT,
+    
+    return genai.Client(
+        api_key=api_key,
+        http_options={'api_version': 'v1'}
     )
+
+
+def _log_available_models(client: genai.Client):
+    """Utility to troubleshoot model availability."""
+    print(f"--- DIAGNOSTIC: Listing available models ---", file=sys.stderr)
+    try:
+        for model in client.models.list():
+            print(f"  Supported Model: {model.name}", file=sys.stderr)
+    except Exception as e:
+        print(f"  Diagnostic failed: {e}", file=sys.stderr)
+    print("---------------------------------------------", file=sys.stderr)
+
+
+def _generate_with_diagnostic(client: genai.Client, contents: list[types.Content], config: types.GenerateContentConfig):
+    """Execution wrapper with error handling and diagnostic logging."""
+    try:
+        return client.models.generate_content(
+            model=MODEL_NAME,
+            contents=contents,
+            config=config
+        )
+    except Exception as e:
+        err_msg = str(e).lower()
+        if "404" in err_msg or "not_found" in err_msg:
+            print(f"ERROR: Model '{MODEL_NAME}' not found.", file=sys.stderr)
+            _log_available_models(client)
+        raise
 
 
 def _parse_response(raw: str) -> VerificationCard:
     """Parse raw Gemini text into a VerificationCard. Raises ValueError on failure."""
-    # Strip markdown code fences if Gemini wraps the JSON anyway
-    cleaned = re.sub(r"```(?:json)?", "", raw, flags=re.IGNORECASE).strip().rstrip("`").strip()
+    # Robust parsing: try direct JSON first, then regex for fenced or conversationally-wrapped JSON.
+    cleaned = raw.strip()
     try:
-        data = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Gemini returned invalid JSON: {exc}\nRaw output: {raw[:300]}") from exc
+         data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Fallback 1: Strip code fences manually
+        unfenced = re.sub(r"```(?:json)?", "", cleaned, flags=re.IGNORECASE).strip().rstrip("`").strip()
+        try:
+            data = json.loads(unfenced)
+        except json.JSONDecodeError:
+            # Fallback 2: Search for first { and last }
+            match = re.search(r"(\{.*\})", cleaned, re.DOTALL)
+            if match:
+                try:
+                    data = json.loads(match.group(1))
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f"Gemini output is truncated or malformed: {raw[:300]}") from exc
+            else:
+                raise ValueError(f"Gemini failed to output a JSON object: {raw[:300]}")
 
     loc_raw = data.get("location", {}) or {}
     action_raw = data.get("action_payload", {}) or {}
 
     return VerificationCard(
-        priority=data["priority"],
-        category=data["category"],
+        priority=data.get("priority", "P4"),
+        category=data.get("category", "Other"),
         location=LocationModel(
             lat=loc_raw.get("lat"),
             lng=loc_raw.get("lng"),
@@ -94,11 +131,22 @@ def _parse_response(raw: str) -> VerificationCard:
 
 
 async def analyze_text(text: str, geo_hint: Optional[str] = None) -> VerificationCard:
-    model = _build_model()
-    prompt = f"Incident report:\n{text}"
+    client = _get_client()
+    contents = [
+        types.Content(role="user", parts=[types.Part.from_text(text=_SYSTEM_PROMPT)]),
+        types.Content(role="user", parts=[types.Part.from_text(text=f"Incident report:\n{text}")])
+    ]
     if geo_hint:
-        prompt += f"\n\nUser's GPS coordinates: {geo_hint}"
-    response = model.generate_content(prompt)
+        contents[1].parts.append(types.Part.from_text(text=f"\n\nUser GPS: {geo_hint}"))
+
+    response = _generate_with_diagnostic(
+        client, contents, 
+        types.GenerateContentConfig(
+            temperature=0.2, 
+            max_output_tokens=1024
+            # response_mime_type removed here to resolve 400 error on v1
+        )
+    )
     return _parse_response(response.text)
 
 
@@ -107,21 +155,38 @@ async def analyze_image(
     mime_type: str,
     geo_hint: Optional[str] = None,
 ) -> VerificationCard:
-    model = _build_model()
-    parts: list = [{"mime_type": mime_type, "data": image_bytes}]
+    client = _get_client()
     context = "Analyze this emergency scene image."
     if geo_hint:
         context += f" User GPS: {geo_hint}."
-    parts.append(context)
-    response = model.generate_content(parts)
+
+    contents = [
+        types.Content(role="user", parts=[types.Part.from_text(text=_SYSTEM_PROMPT)]),
+        types.Content(role="user", parts=[
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+            types.Part.from_text(text=context)
+        ])
+    ]
+
+    response = _generate_with_diagnostic(
+        client, contents, 
+        types.GenerateContentConfig(temperature=0.2, max_output_tokens=1024)
+    )
     return _parse_response(response.text)
 
 
 async def analyze_audio(audio_bytes: bytes, mime_type: str) -> VerificationCard:
-    model = _build_model()
-    parts: list = [
-        {"mime_type": mime_type, "data": audio_bytes},
-        "Transcribe and analyze this emergency voice report.",
+    client = _get_client()
+    contents = [
+        types.Content(role="user", parts=[types.Part.from_text(text=_SYSTEM_PROMPT)]),
+        types.Content(role="user", parts=[
+            types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
+            types.Part.from_text(text="Transcribe and analyze this voice report.")
+        ])
     ]
-    response = model.generate_content(parts)
+
+    response = _generate_with_diagnostic(
+        client, contents, 
+        types.GenerateContentConfig(temperature=0.2, max_output_tokens=1024)
+    )
     return _parse_response(response.text)

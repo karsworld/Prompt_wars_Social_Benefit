@@ -10,6 +10,7 @@ PROJECT_ID="${1:?Usage: bash deploy.sh YOUR_PROJECT_ID}"
 REGION="us-central1"
 SERVICE="bridgelink"
 REPO="bridgelink-repo"
+GCS_BUCKET_NAME="social-benefit-archive-antigravity-promptwars"
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}"
 
 echo ""
@@ -120,6 +121,7 @@ gcloud run deploy "${SERVICE}" \
   --min-instances 0 \
   --max-instances 5 \
   --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_MAPS_API_KEY=GOOGLE_MAPS_API_KEY:latest" \
+  --set-env-vars "GCS_BUCKET_NAME=${GCS_BUCKET_NAME}" \
   --quiet
 
 # ── 8. Get service URL & smoke test ──────────────────────────

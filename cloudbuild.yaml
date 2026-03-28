@@ -46,12 +46,18 @@ steps:
       - '5'
       - '--set-secrets'
       - 'GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_MAPS_API_KEY=GOOGLE_MAPS_API_KEY:latest'
+      - '--set-env-vars'
+      - 'GCS_BUCKET_NAME=social-benefit-archive-$PROJECT_ID'
     waitFor: ['push']
 
 # Store the built image in Artifact Registry
 images:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest'
+
+# REQUIRED ROLES FOR SERVICE ACCOUNT:
+# 1. Secret Manager Secret Accessor (for API Keys)
+# 2. Storage Object Admin (to create archive files)
 
 # Substitution defaults (override with --substitutions flag)
 substitutions:
