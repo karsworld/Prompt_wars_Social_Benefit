@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="BridgeLink — AI-powered crisis reporting. Capture incidents via voice, image, or text and get instant structured emergency dispatch." />
+  <title>BridgeLink — Crisis Response</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <!-- Skip-to-content for keyboard/screen-reader users -->
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- Header -->
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <div class="logo" aria-label="BridgeLink home">
+        <span class="logo-icon" aria-hidden="true">🔗</span>
+        <span class="logo-text">Bridge<strong>Link</strong></span>
+      </div>
+      <div class="header-badge" aria-label="Powered by Gemini 1.5 Flash">
+        <span class="gemini-dot" aria-hidden="true"></span>
+        Gemini 1.5 Flash
+      </div>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main id="main-content" class="main-container" role="main">
+
+    <!-- Hero -->
+    <section class="hero" aria-label="App introduction">
+      <h1 class="hero-title">Report Any Crisis.<br /><span class="gradient-text">Instantly.</span></h1>
+      <p class="hero-subtitle">
+        Voice, image, or text — BridgeLink uses AI to extract priority,
+        location, and dispatch the right help in seconds.
+      </p>
+    </section>
+
+    <!-- Capture Panel -->
+    <section class="capture-panel" aria-label="Incident capture">
+
+      <!-- Input type selector -->
+      <div class="input-tabs" role="tablist" aria-label="Choose input method">
+        <button
+          id="tab-text"
+          class="tab-btn active"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panel-text"
+          data-type="text"
+        >
+          <span aria-hidden="true">✏️</span> Text
+        </button>
+        <button
+          id="tab-image"
+          class="tab-btn"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-image"
+          data-type="image"
+        >
+          <span aria-hidden="true">📷</span> Image
+        </button>
+        <button
+          id="tab-voice"
+          class="tab-btn"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-voice"
+          data-type="voice"
+        >
+          <span aria-hidden="true">🎙️</span> Voice
+        </button>
+      </div>
+
+      <!-- Text Panel -->
+      <div id="panel-text" class="input-panel active" role="tabpanel" aria-labelledby="tab-text">
+        <label class="sr-only" for="text-input">Describe the incident</label>
+        <textarea
+          id="text-input"
+          class="text-area"
+          placeholder="Describe what's happening — e.g. 'Man collapsed on Market St, not breathing…'"
+          rows="5"
+          maxlength="2000"
+          aria-describedby="text-counter"
+        ></textarea>
+        <div id="text-counter" class="char-counter" aria-live="polite">0 / 2000</div>
+      </div>
+
+      <!-- Image Panel -->
+      <div id="panel-image" class="input-panel" role="tabpanel" aria-labelledby="tab-image" hidden>
+        <div
+          id="drop-zone"
+          class="drop-zone"
+          role="button"
+          tabindex="0"
+          aria-label="Drop an image here or click to upload"
+          aria-describedby="drop-hint"
+        >
+          <span class="drop-icon" aria-hidden="true">📸</span>
+          <p id="drop-hint">Drop an image here or <span class="link-text">click to upload</span></p>
+          <p class="drop-sub">JPEG, PNG, WebP — max 5 MB</p>
+        </div>
+        <input
+          id="image-file"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          class="sr-only"
+          aria-label="Upload incident image"
+        />
+        <div id="image-preview-wrap" class="image-preview-wrap" hidden aria-live="polite">
+          <img id="image-preview" class="image-preview" src="" alt="Selected incident image preview" />
+          <button id="image-clear" class="icon-btn" aria-label="Remove selected image">✕</button>
+        </div>
+      </div>
+
+      <!-- Voice Panel -->
+      <div id="panel-voice" class="input-panel" role="tabpanel" aria-labelledby="tab-voice" hidden>
+        <div class="voice-controls">
+          <button
+            id="btn-record"
+            class="record-btn"
+            aria-label="Start voice recording"
+            aria-pressed="false"
+          >
+            <span class="record-icon" aria-hidden="true">🎙️</span>
+            <span id="record-label">Hold to Record</span>
+          </button>
+          <div id="voice-viz" class="voice-viz" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div id="voice-status" class="voice-status" aria-live="assertive" aria-atomic="true">
+            Press and hold the button to start recording
+          </div>
+          <div id="voice-timer" class="voice-timer" aria-live="polite" hidden>0s</div>
+        </div>
+      </div>
+
+      <!-- Location strip -->
+      <div class="location-strip" aria-live="polite">
+        <span class="location-icon" aria-hidden="true">📍</span>
+        <span id="location-text">Detecting location…</span>
+        <button id="btn-retry-geo" class="link-btn" aria-label="Retry location detection" hidden>
+          Retry
+        </button>
+      </div>
+
+      <!-- Submit button -->
+      <button
+        id="btn-analyze"
+        class="analyze-btn"
+        aria-label="Analyze incident with Gemini AI"
+        aria-busy="false"
+      >
+        <span id="analyze-label">Analyze Incident</span>
+        <span id="analyze-spinner" class="spinner" aria-hidden="true" hidden></span>
+      </button>
+
+      <!-- Error banner -->
+      <div id="error-banner" class="error-banner" role="alert" aria-live="assertive" hidden>
+        <span class="error-icon" aria-hidden="true">⚠️</span>
+        <span id="error-msg"></span>
+      </div>
+    </section>
+
+    <!-- Verification Card (hidden until analysis complete) -->
+    <section
+      id="verification-section"
+      class="verification-section"
+      aria-label="Verification card"
+      hidden
+    >
+      <h2 class="section-title">Verification Card</h2>
+      <div id="card" class="card" role="region" aria-label="Incident details">
+
+        <!-- Priority badge -->
+        <div class="card-header">
+          <span id="card-priority" class="priority-badge" aria-label="Priority level"></span>
+          <span id="card-category" class="category-tag" aria-label="Incident category"></span>
+          <span id="card-confidence" class="confidence-tag" aria-label="AI confidence"></span>
+        </div>
+
+        <!-- Summary -->
+        <p id="card-summary" class="card-summary" aria-label="Incident summary"></p>
+
+        <!-- Location -->
+        <div class="card-location">
+          <span aria-hidden="true">📍</span>
+          <span id="card-location-desc" aria-label="Location description"></span>
+        </div>
+
+        <!-- Map -->
+        <div
+          id="map"
+          class="map-container"
+          role="img"
+          aria-label="Map showing incident location"
+        ></div>
+
+        <!-- Action payload -->
+        <div class="action-payload" aria-label="Dispatch details">
+          <h3 class="payload-title">Dispatch Parameters</h3>
+          <div class="payload-grid">
+            <div class="payload-item">
+              <span class="payload-label">Type</span>
+              <span id="payload-type" class="payload-value"></span>
+            </div>
+            <div class="payload-item">
+              <span class="payload-label">Units</span>
+              <span id="payload-units" class="payload-value"></span>
+            </div>
+            <div class="payload-item">
+              <span class="payload-label">Response</span>
+              <span id="payload-urgency" class="payload-value"></span>
+            </div>
+          </div>
+          <p id="payload-notes" class="payload-notes" aria-label="Responder notes"></p>
+        </div>
+
+        <!-- Confirm button -->
+        <button
+          id="btn-confirm"
+          class="confirm-btn"
+          aria-label="Confirm and dispatch emergency response"
+          aria-busy="false"
+        >
+          <span id="confirm-label">✅ Confirm &amp; Dispatch</span>
+          <span id="confirm-spinner" class="spinner" aria-hidden="true" hidden></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Dispatch Acknowledgment -->
+    <section
+      id="ack-section"
+      class="ack-section"
+      aria-label="Dispatch acknowledgment"
+      aria-live="assertive"
+      hidden
+    >
+      <div class="ack-card">
+        <div class="ack-icon" aria-hidden="true">🚀</div>
+        <h2 class="ack-title">Dispatched</h2>
+        <p id="ack-message" class="ack-message"></p>
+        <p class="ack-id">Dispatch ID: <strong id="ack-id"></strong></p>
+        <button id="btn-reset" class="reset-btn" aria-label="Report another incident">
+          Report Another Incident
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <p>BridgeLink &copy; 2024 &mdash; PromptWars Challenge &mdash; Powered by Gemini 1.5 Flash</p>
+  </footer>
+
+  <!-- Google Maps injected by app.js after API key is fetched -->
+  <div id="maps-script-container"></div>
+
+  <script src="/static/js/app.js" defer></script>
+</body>
+</html>
