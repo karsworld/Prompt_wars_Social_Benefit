@@ -1,4 +1,4 @@
-"""Gemini SDK Migration — stable JSON parsing with compatibility fallback."""
+"""Gemini SDK Migration — Async AIO Client for Efficiency & Stable Parsing."""
 from __future__ import annotations
 
 import json
@@ -13,7 +13,7 @@ from google.genai import types
 from app.models.schemas import ActionPayload, LocationModel, VerificationCard
 
 # ---------------------------------------------------------------------------
-# Config: Target model for current environment
+# Config: Required model for Prompt Wars 2026 specs
 # ---------------------------------------------------------------------------
 MODEL_NAME = "models/gemini-2.5-flash"
 
@@ -59,21 +59,22 @@ def _get_client() -> genai.Client:
     )
 
 
-def _log_available_models(client: genai.Client):
-    """Utility to troubleshoot model availability."""
+async def _log_available_models_async(client: genai.Client):
+    """Troubleshoot available models using async interface."""
     print(f"--- DIAGNOSTIC: Listing available models ---", file=sys.stderr)
     try:
-        for model in client.models.list():
+        models = await client.aio.models.list()
+        for model in models:
             print(f"  Supported Model: {model.name}", file=sys.stderr)
     except Exception as e:
         print(f"  Diagnostic failed: {e}", file=sys.stderr)
     print("---------------------------------------------", file=sys.stderr)
 
 
-def _generate_with_diagnostic(client: genai.Client, contents: list[types.Content], config: types.GenerateContentConfig):
-    """Execution wrapper with error handling and diagnostic logging."""
+async def _generate_aio(client: genai.Client, contents: list[types.Content], config: types.GenerateContentConfig):
+    """Execute non-blocking async call for efficiency."""
     try:
-        return client.models.generate_content(
+        return await client.aio.models.generate_content(
             model=MODEL_NAME,
             contents=contents,
             config=config
@@ -82,13 +83,12 @@ def _generate_with_diagnostic(client: genai.Client, contents: list[types.Content
         err_msg = str(e).lower()
         if "404" in err_msg or "not_found" in err_msg:
             print(f"ERROR: Model '{MODEL_NAME}' not found.", file=sys.stderr)
-            _log_available_models(client)
+            await _log_available_models_async(client)
         raise
 
 
 def _parse_response(raw: str) -> VerificationCard:
     """Parse raw Gemini text into a VerificationCard. Raises ValueError on failure."""
-    # Robust parsing: try direct JSON first, then regex for fenced or conversationally-wrapped JSON.
     cleaned = raw.strip()
     try:
          data = json.loads(cleaned)
@@ -134,18 +134,14 @@ async def analyze_text(text: str, geo_hint: Optional[str] = None) -> Verificatio
     client = _get_client()
     contents = [
         types.Content(role="user", parts=[types.Part.from_text(text=_SYSTEM_PROMPT)]),
-        types.Content(role="user", parts=[types.Part.from_text(text=f"Incident report:\n{text}")])
+        types.Content(role="user", parts=[types.Part.from_text(text=f"Incident report:\n{text.strip()}")])
     ]
     if geo_hint:
         contents[1].parts.append(types.Part.from_text(text=f"\n\nUser GPS: {geo_hint}"))
 
-    response = _generate_with_diagnostic(
+    response = await _generate_aio(
         client, contents, 
-        types.GenerateContentConfig(
-            temperature=0.2, 
-            max_output_tokens=1024
-            # response_mime_type removed here to resolve 400 error on v1
-        )
+        types.GenerateContentConfig(temperature=0.2, max_output_tokens=1024)
     )
     return _parse_response(response.text)
 
@@ -168,7 +164,7 @@ async def analyze_image(
         ])
     ]
 
-    response = _generate_with_diagnostic(
+    response = await _generate_aio(
         client, contents, 
         types.GenerateContentConfig(temperature=0.2, max_output_tokens=1024)
     )
@@ -185,7 +181,7 @@ async def analyze_audio(audio_bytes: bytes, mime_type: str) -> VerificationCard:
         ])
     ]
 
-    response = _generate_with_diagnostic(
+    response = await _generate_aio(
         client, contents, 
         types.GenerateContentConfig(temperature=0.2, max_output_tokens=1024)
     )

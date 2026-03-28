@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 import re
 
-from PIL import Image, UnidentifiedImageError
+# from PIL import Image delayed to validate_image for startup performance
 
 MAX_TEXT_LENGTH = 2_000
 MAX_IMAGE_BYTES = 5 * 1024 * 1024   # 5 MB
@@ -18,7 +18,7 @@ def sanitize_text(text: str) -> str:
     text = re.sub(r"<[^>]+>", "", text)
     # Strip inline JS event handlers (onclick=, onload=, etc.)
     text = re.sub(r"(?i)on\w+\s*=\s*(?:['\"].*?['\"]|\S+)", "", text)
-    # Collapse whitespace
+    # Collapse whitespace and trim for payload efficiency
     text = re.sub(r"\s+", " ", text).strip()
     return text[:MAX_TEXT_LENGTH]
 
@@ -32,6 +32,7 @@ def validate_image(data: bytes, content_type: str) -> bytes:
             f"Image too large: {len(data):,} bytes (max {MAX_IMAGE_BYTES:,})"
         )
     try:
+        from PIL import Image, UnidentifiedImageError
         img = Image.open(io.BytesIO(data))
         img.verify()  # Raises on corrupt files
     except UnidentifiedImageError:

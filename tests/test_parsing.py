@@ -70,7 +70,7 @@ class TestParseResponse:
         assert card.location.description == "Somewhere in the city"
 
     def test_malformed_json_raises_value_error(self):
-        with pytest.raises(ValueError, match="invalid JSON"):
+        with pytest.raises(ValueError, match="malformed"):
             _parse_response("{not: valid json}")
 
     def test_empty_string_raises_value_error(self):
